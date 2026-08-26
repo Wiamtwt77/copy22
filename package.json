@@ -1,0 +1,7 @@
+{
+  "name": "secret-court-game",
+  "version": "2.0.0",
+  "description": "المحكمة السرية - لعبة اجتماعية سرية",
+  "type": "module",
+  "engines": { "node": ">=18.x" }
+}

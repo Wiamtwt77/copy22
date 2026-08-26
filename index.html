@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>المحكمة السرية - النسخة المطورة</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --border-color: #334155;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --accent: #f59e0b;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 1.5rem; }
+    .container { width: 100%; max-width: 900px; }
+    h1, h2, h3 { color: var(--text); text-align: center; margin-bottom: 1rem; }
+    .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    .btn { background-color: var(--primary); color: white; border: none; padding: 0.65rem 1.25rem; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; gap: 0.5rem; }
+    .btn:hover { background-color: var(--primary-hover); }
+    .btn-danger { background-color: var(--danger); }
+    .btn-danger:hover { background-color: #dc2626; }
+    .btn-success { background-color: var(--success); }
+    .btn-success:hover { background-color: #16a34a; }
+    .btn-accent { background-color: var(--accent); color: #000; }
+    .btn-accent:hover { background-color: #d97706; }
+    input, select, textarea { width: 100%; padding: 0.75rem; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text); border-radius: 8px; margin-bottom: 1rem; font-size: 1rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
+    .player-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 10px; padding: 1rem; display: flex; flex-direction: column; justify-content: space-between; }
+    .badge { display: inline-block; padding: 0.2rem 0.5rem; font-size: 0.8rem; border-radius: 4px; background: rgba(59,130,246,0.2); color: var(--primary); }
+    .card-item { background: #26354a; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.8rem; margin-bottom: 0.8rem; cursor: pointer; transition: all 0.2s; }
+    .card-item:hover { border-color: var(--primary); transform: translateY(-2px); }
+    .card-item.selected { border-color: var(--accent); background: rgba(245,158,11,0.1); }
+    .flex-row { display: flex; gap: 0.75rem; align-items: center; }
+    .mt-2 { margin-top: 1rem; }
+    .text-muted { color: var(--text-muted); font-size: 0.9rem; }
+    .success-box { background: rgba(34, 197, 94, 0.1); border: 1px solid var(--success); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+  
+    .locked { opacity: .5; filter: blur(1px); pointer-events:none; }
+    .hidden-private { display:none !important; }
+    .card-item { background:#26354a; border:1px solid var(--border-color); border-radius:8px; padding:.9rem; margin-bottom:.8rem; }
+    .card-item button { margin-top:.65rem; }
+  </style>
+</head>
+<body>
+
+<div class="container" id="app">
+  <!-- إعداد اللعبة -->
+  <div id="setup-screen" class="card">
+    <h2>المحكمة السرية - إعداد الجلسة</h2>
+    <p class="text-muted" style="text-align: center; margin-bottom: 1.5rem;">أدخل أسماء المشاركين لبدء جلسة المحكمة واستمتع بالأدوار والأسرار.</p>
+    <div id="player-inputs-container">
+      <input type="text" class="player-name-input" placeholder="اسم اللاعب 1" value="إيفا">
+      <input type="text" class="player-name-input" placeholder="اسم اللاعب 2" value="سارة">
+      <input type="text" class="player-name-input" placeholder="اسم اللاعب 3" value="نورة">
+    </div>
+    <div class="flex-row" style="justify-content: space-between; margin-top: 1rem;">
+      <button class="btn" onclick="addPlayerInput()">+ إضافة لاعب</button>
+      <button class="btn btn-success" onclick="startSession()">بدء المحكمة</button>
+    </div>
+  </div>
+
+  <!-- واجهة اللعبة الأساسية -->
+  <div id="game-screen" style="display: none;">
+    <div class="card flex-row" style="justify-content: space-between;">
+      <div>
+        <h3 id="current-round-title">الجولة: 1</h3>
+        <p class="text-muted" id="current-turn-label">مرر الجهاز للاعب الحالي.</p>
+      </div>
+      <button class="btn btn-danger" onclick="resetGame()">إعادة ضبط</button>
+    </div>
+
+    <div class="card" id="mailbox-card" style="display: none;">
+      <h3>📬 صندوقك السري</h3>
+      <div id="mailbox-messages-list"></div>
+    </div>
+
+    <div class="card">
+      <h3>حالة الطاولة</h3>
+      <div class="grid" id="players-grid"></div>
+    </div>
+
+    <div class="card" id="handoff-screen">
+      <h2>🔒 الواجهة السرية</h2>
+      <p id="handoff-text" class="text-muted" style="text-align:center;margin-bottom:1rem;line-height:1.6"></p>
+      <button class="btn btn-accent" onclick="openPrivateInterface()" style="width:100%;justify-content:center">فتح واجهتي</button>
+      <p class="text-muted" style="text-align:center;margin-top:.8rem">لا تفتح الواجهة إلا صاحب الدور.</p>
+    </div>
+
+    <div class="card" id="private-player-panel" style="display:none;">
+      <h2 id="active-player-name">دور اللاعب</h2>
+      <div class="success-box"><strong>هذه الواجهة خاصة بك.</strong> بعد إنهاء قرارك اضغط «إخفاء الواجهة» ليمرر الجهاز للاعب التالي.</div>
+      <p class="text-muted" style="margin-bottom:1rem">لا توجد بطاقات مجانية: اشترِ بطاقة عشوائية بقيمة 1 أو 4 سمعة، ثم يجب لعب بطاقة لإنهاء الدور.</p>
+
+      <div class="card" style="margin-bottom:1rem;border-color:var(--accent)">
+        <h3>سحب بطاقة عشوائية</h3>
+        <div class="grid">
+          <div class="player-card">
+            <h4>بطاقة ضعيفة — 1 سمعة</h4>
+            <p class="text-muted">أثر محدود، وخطر منخفض.</p>
+            <button class="btn mt-2" onclick="buyRandomCard(1)">اشترِ عشوائيًا بـ 1</button>
+          </div>
+          <div class="player-card">
+            <h4>بطاقة قوية — 4 سمعة</h4>
+            <p class="text-muted">أثر كبير، لكن خطرها ينعكس في التحقيق.</p>
+            <button class="btn btn-accent mt-2" onclick="buyRandomCard(4)">اشترِ عشوائيًا بـ 4</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="private-inventory"></div>
+      <div id="action-controls" style="display:none;margin-top:1rem;border-top:1px solid var(--border-color);padding-top:1rem">
+        <div id="target-selector-wrapper" style="display:none">
+          <label class="text-muted">الهدف:</label>
+          <select id="target-select"></select>
+        </div>
+        <div id="text-input-wrapper" style="display:none">
+          <label class="text-muted">الرسالة:</label>
+          <textarea id="action-text-input" rows="2" placeholder="اكتب رسالتك السرية..."></textarea>
+        </div>
+        <button class="btn btn-success" style="width:100%;justify-content:center" onclick="playSelectedCard()">لعب البطاقة</button>
+      </div>
+
+      <div id="extra-turn-controls" style="display:none;margin-top:1rem">
+        <div class="success-box">يمكنك الآن لعب بطاقة أخرى، أو تجاوز الدور.</div>
+        <div class="flex-row">
+          <button class="btn btn-success" onclick="continueWithAnotherCard()">لعب بطاقة أخرى</button>
+          <button class="btn" onclick="hidePrivateInterface()">تجاوز وإنهاء الدور</button>
+        </div>
+      </div>
+      <button class="btn btn-danger mt-2" style="width:100%;justify-content:center" onclick="hidePrivateInterface()">إخفاء الواجهة</button>
+    </div>
+  </div>
+
+  <div id="court-report-screen" class="card" style="display:none">
+    <h2>🕵️ تقرير التحقيق</h2>
+    <div id="court-clue-content" style="background:rgba(255,255,255,.03);padding:1rem;border-radius:8px;margin-bottom:1rem;line-height:1.7"></div>
+    <button class="btn btn-accent" style="width:100%;justify-content:center" onclick="startPrivateVoting()">بدء التصويت السري</button>
+  </div>
+
+  <div id="voting-screen" class="card" style="display:none">
+    <div id="vote-handoff">
+      <h2>🗳️ التصويت السري</h2>
+      <p id="vote-handoff-text" class="text-muted" style="text-align:center;line-height:1.7"></p>
+      <button class="btn btn-accent" onclick="openPrivateVote()" style="width:100%;justify-content:center">فتح واجهة التصويت</button>
+    </div>
+    <div id="private-vote-panel" style="display:none">
+      <h2 id="private-voter-name">التصويت</h2>
+      <p class="text-muted">اختر شخصًا واحدًا تعتقد أنه الجاني. لن يرى الآخرون اختيارك.</p>
+      <select id="private-vote-select"></select>
+      <button class="btn btn-success" style="width:100%;justify-content:center" onclick="submitPrivateVote()">تأكيد صوتي ثم إخفاء الواجهة</button>
+    </div>
+    <div id="vote-waiting" style="display:none" class="success-box">تم تسجيل صوتك. مرر الجهاز للاعب التالي.</div>
+  </div>
+
+  <div id="verdict-screen" class="card" style="display:none">
+    <h2>⚖️ نتيجة التحقيق</h2>
+    <div id="verdict-message" class="success-box"></div>
+    <div id="vote-counts" class="text-muted" style="line-height:1.7"></div>
+    <button class="btn" onclick="nextRound()" style="width:100%;justify-content:center">الانتقال للجولة التالية</button>
+  </div>
+</div>
+
+<script>
+let gameState = {
+  players: [], hands: {}, pendingMessages: {}, pendingAllianceRequests: [], currentRound: 1,
+  activePlayerIndex: 0, selectedCardId: null, roundActions: [], courtCase: null,
+  privateOpen: false, extraTurnAvailable: false, votingIndex: 0, votes: []
+};
+
+function addPlayerInput(){ const c=document.getElementById('player-inputs-container'); const i=document.createElement('input'); i.type='text'; i.className='player-name-input'; i.placeholder=`اسم اللاعب ${c.children.length+1}`; c.appendChild(i); }
+function api(body){ return fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(async r=>{const d=await r.json(); if(!r.ok||d.error) throw new Error(d.message||'API error'); return d;}); }
+
+async function startSession(){
+  const names=Array.from(document.querySelectorAll('.player-name-input')).map(i=>i.value.trim()).filter(Boolean);
+  if(names.length<2){alert('أدخل اسمين صحيحين على الأقل.');return;}
+  gameState.players=names.map((name,idx)=>({id:`p-${idx+1}-${Date.now()}`,name,reputation:10,allyId:null,allyRoundsLeft:0,shield:false,reflect:false,suspicion:0,accusationBonus:0}));
+  gameState.hands=Object.fromEntries(gameState.players.map(p=>[p.id,[]]));
+  gameState.pendingMessages={}; gameState.pendingAllianceRequests=[]; gameState.currentRound=1; gameState.activePlayerIndex=0; gameState.roundActions=[]; gameState.votes=[];
+  document.getElementById('setup-screen').style.display='none'; document.getElementById('game-screen').style.display='block'; renderTable(); prepareTurn();
+}
+
+function renderTable(){
+  const current=gameState.players[gameState.activePlayerIndex];
+  document.getElementById('current-round-title').innerText=`الجولة: ${gameState.currentRound}`;
+  document.getElementById('current-turn-label').innerText=current?`الدور الآن: ${current.name}`:'-';
+  document.getElementById('players-grid').innerHTML=gameState.players.map(p=>`<div class="player-card"><h4>${p.name}${p.id===current?.id?' <span class="badge">الدور</span>':''}</h4><p class="text-muted">السمعة: ${p.reputation}</p><p class="text-muted">${p.allyId?'تحالف نشط':'بلا تحالف'}</p></div>`).join('');
+}
+
+function prepareTurn(){
+  const p=gameState.players[gameState.activePlayerIndex];
+  gameState.privateOpen=false; gameState.selectedCardId=null; gameState.extraTurnAvailable=false;
+  document.getElementById('handoff-screen').style.display='block'; document.getElementById('private-player-panel').style.display='none';
+  document.getElementById('handoff-text').innerText=`هذا الجهاز الآن أمام ${p.name}. افتح الواجهة فقط إذا كنت ${p.name}.`;
+  renderTable();
+}
+
+function currentPlayer(){return gameState.players[gameState.activePlayerIndex];}
+function openPrivateInterface(){
+  const p=currentPlayer(); gameState.privateOpen=true;
+  document.getElementById('handoff-screen').style.display='none'; document.getElementById('private-player-panel').style.display='block';
+  document.getElementById('active-player-name').innerText=`${p.name} — واجهتك الخاصة`;
+  renderPrivateInterface();
+}
+function hidePrivateInterface(){
+  if(gameState.extraTurnAvailable){ finishTurn(); return; }
+  gameState.privateOpen=false; gameState.selectedCardId=null; document.getElementById('private-player-panel').style.display='none';
+  gameState.activePlayerIndex++;
+  if(gameState.activePlayerIndex>=gameState.players.length){ gameState.activePlayerIndex=0; resolveRound(); } else prepareTurn();
+}
+
+function renderPrivateInterface(){
+  const p=currentPlayer(); const hand=gameState.hands[p.id]||[];
+  const box=document.getElementById('private-inventory');
+  const msgs=gameState.pendingMessages[p.id]||[];
+  let html=`<div class="card" style="background:rgba(255,255,255,.02)"><h3>رصيدك: ${p.reputation} سمعة</h3>`;
+  if(msgs.length) html+=msgs.map(m=>m.type==='ALLIANCE_REQUEST'?`<div class="success-box"><strong>🤝 ${m.fromName}</strong><p style="margin:.5rem 0">طلب تحالفًا معك.</p><div class="flex-row"><button class="btn btn-success" onclick="respondAlliance('${m.requestId}',true)">قبول</button><button class="btn btn-danger" onclick="respondAlliance('${m.requestId}',false)">رفض</button></div></div>`:`<div class="success-box"><strong>✉️ من ${m.fromName}</strong><p style="margin-top:.4rem">${escapeHtml(m.text)}</p></div>`).join('');
+  if(msgs.length) gameState.pendingMessages[p.id]=[];
+  html += hand.length ? `<h3>بطاقاتك</h3>${hand.map(c=>`<div class="card-item"><strong>${c.name}</strong> <span class="badge">${c.rarity} · خطر ${c.risk}/4</span><p class="text-muted" style="margin-top:.4rem">${c.description}</p><button class="btn" onclick="selectCard('${c.id}')">اختيار للعب</button></div>`).join('') : `<p class="text-muted">لا تملك بطاقات. يجب شراء بطاقة عشوائية ثم لعب بطاقة لإنهاء الدور.</p>`;
+  box.innerHTML=html+'</div>';
+  const card=(gameState.hands[p.id]||[]).find(c=>c.id===gameState.selectedCardId);
+  document.getElementById('action-controls').style.display=card?'block':'none';
+  if(card){
+    document.getElementById('target-selector-wrapper').style.display=card.targetRequired?'block':'none'; document.getElementById('text-input-wrapper').style.display=card.effectType==='MESSAGE'?'block':'none';
+    const sel=document.getElementById('target-select'); sel.innerHTML=gameState.players.filter(x=>x.id!==p.id&&x.reputation>0).map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
+  }
+  document.getElementById('extra-turn-controls').style.display=gameState.extraTurnAvailable?'block':'none';
+}
+function selectCard(id){gameState.selectedCardId=id;renderPrivateInterface();}
+async function buyRandomCard(cost){
+  const p=currentPlayer();
+  try{const d=await api({action:'buy_card',players:gameState.players,playerId:p.id,cost}); gameState.players=d.players; gameState.hands[p.id].push(d.boughtCard); renderTable();renderPrivateInterface();alert(`سحبت عشوائيًا: ${d.boughtCard.name}`);}catch(e){alert(e.message)}
+}
+
+async function playSelectedCard(){
+  const p=currentPlayer(); const card=(gameState.hands[p.id]||[]).find(c=>c.id===gameState.selectedCardId); if(!card)return;
+  const targetId=card.targetRequired?document.getElementById('target-select').value:null;
+  const text=card.effectType==='MESSAGE'?document.getElementById('action-text-input').value:'';
+  if(card.effectType==='REVEAL_CARDS'){
+    const d=await api({action:'instant_reveal_cards',targetId,hands:gameState.hands}); const who=gameState.players.find(x=>x.id===targetId); alert(`بطاقات ${who?.name||'اللاعب'}: ${(d.targetCards||[]).map(c=>c.name).join('، ')||'لا توجد بطاقات'}`);
+    consumeCard(card.id); gameState.extraTurnAvailable=true; gameState.selectedCardId=null; renderPrivateInterface(); return;
+  }
+  if(card.effectType==='SWAP_CARD'){
+    const d=await api({action:'instant_swap_card',playerId:p.id,cardId:card.id,hands:gameState.hands}); gameState.hands=d.hands; gameState.extraTurnAvailable=true; gameState.selectedCardId=null; renderPrivateInterface(); return;
+  }
+  gameState.roundActions.push({playerId:p.id,generatedCard:card,targetId,text}); consumeCard(card.id); gameState.selectedCardId=null;
+  finishTurn();
+}
+function consumeCard(id){const p=currentPlayer();gameState.hands[p.id]=(gameState.hands[p.id]||[]).filter(c=>c.id!==id);}
+function continueWithAnotherCard(){gameState.extraTurnAvailable=false;renderPrivateInterface();}
+function finishTurn(){
+  const p=currentPlayer(); if(!(gameState.roundActions.some(a=>a.playerId===p.id)||gameState.extraTurnAvailable)) { alert('يجب لعب بطاقة أولًا حتى تنهي دورك.'); return; }
+  gameState.extraTurnAvailable=false; document.getElementById('private-player-panel').style.display='none'; gameState.privateOpen=false; gameState.activePlayerIndex++;
+  if(gameState.activePlayerIndex>=gameState.players.length){gameState.activePlayerIndex=0;resolveRound();}else prepareTurn();
+}
+
+async function respondAlliance(requestId,accept){
+  const d=await api({action:'respond_alliance',players:gameState.players,pendingAllianceRequests:gameState.pendingAllianceRequests,requestId,accept});
+  gameState.players=d.players; gameState.pendingAllianceRequests=d.pendingAllianceRequests; renderTable(); renderPrivateInterface();
+}
+
+async function resolveRound(){
+  document.getElementById('game-screen').style.display='none';
+  try{
+    const d=await api({action:'resolve_round',players:gameState.players,pendingMessages:gameState.pendingMessages,pendingAllianceRequests:gameState.pendingAllianceRequests,hands:gameState.hands,actions:gameState.roundActions,round:gameState.currentRound});
+    gameState.players=d.players;gameState.pendingMessages=d.pendingMessages;gameState.pendingAllianceRequests=d.pendingAllianceRequests;gameState.hands=d.hands;gameState.courtCase=d.courtCase;gameState.roundActions=[];
+    document.getElementById('court-clue-content').innerHTML=`<h3>${escapeHtml(d.courtCase.title)}</h3><p style="margin-top:.7rem">${escapeHtml(d.courtCase.clue)}</p><p class="text-muted" style="margin-top:.7rem">درجة التوتر: ${d.courtCase.tension}/5</p>${d.courtCase.note?`<p class="text-muted" style="margin-top:.7rem">${escapeHtml(d.courtCase.note)}</p>`:''}`;
+    document.getElementById('court-report-screen').style.display='block';
+  }catch(e){alert(e.message);document.getElementById('game-screen').style.display='block';}
+}
+
+function startPrivateVoting(){
+  document.getElementById('court-report-screen').style.display='none'; document.getElementById('voting-screen').style.display='block'; gameState.votingIndex=0;gameState.votes=[];showVoteHandoff();
+}
+function showVoteHandoff(){
+  const p=gameState.players[gameState.votingIndex]; document.getElementById('vote-handoff').style.display='block';document.getElementById('private-vote-panel').style.display='none';document.getElementById('vote-waiting').style.display='none';document.getElementById('vote-handoff-text').innerText=`مرر الجهاز الآن إلى ${p.name}. لا يفتح واجهة التصويت إلا هو.`;
+}
+function openPrivateVote(){
+  const p=gameState.players[gameState.votingIndex];document.getElementById('vote-handoff').style.display='none';document.getElementById('private-vote-panel').style.display='block';document.getElementById('private-voter-name').innerText=`${p.name} — تصويتك السري`;
+  document.getElementById('private-vote-select').innerHTML=gameState.players.filter(x=>x.id!==p.id&&x.reputation>0).map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
+}
+function submitPrivateVote(){
+  const p=gameState.players[gameState.votingIndex]; const accusedId=document.getElementById('private-vote-select').value; gameState.votes.push({voterId:p.id,accusedId});
+  gameState.votingIndex++;
+  if(gameState.votingIndex>=gameState.players.length) finishVoting(); else showVoteHandoff();
+}
+async function finishVoting(){
+  document.getElementById('voting-screen').style.display='none';
+  try{const d=await api({action:'resolve_vote',players:gameState.players,trueCulpritId:gameState.courtCase?.trueCulpritId,votes:gameState.votes});gameState.players=d.players;document.getElementById('verdict-message').innerText=d.verdictMsg;document.getElementById('vote-counts').innerText=Object.entries(d.voteCounts||{}).map(([id,n])=>`${gameState.players.find(p=>p.id===id)?.name||'مجهول'}: ${n} صوت`).join(' · ')||'لم تصل أصوات صالحة.';document.getElementById('verdict-screen').style.display='block';}catch(e){alert(e.message)}
+}
+function nextRound(){document.getElementById('verdict-screen').style.display='none';gameState.currentRound++;gameState.activePlayerIndex=0;gameState.roundActions=[];document.getElementById('game-screen').style.display='block';prepareTurn();}
+function resetGame(){if(confirm('إعادة ضبط اللعبة؟'))location.reload();}
+function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+</script>
+</body>
+</html>
