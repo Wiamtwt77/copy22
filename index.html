@@ -163,13 +163,7 @@
     <h2>⚖️ نتيجة التحقيق</h2>
     <div id="verdict-message" class="success-box"></div>
     <div id="vote-counts" class="text-muted" style="line-height:1.7"></div>
-    <button class="btn btn-accent" onclick="showRoundEvent()" style="width:100%;justify-content:center">كشف حدث نهاية الجولة</button>
-  </div>
-
-  <div id="round-event-screen" class="card" style="display:none">
-    <h2>🌪️ حدث نهاية الجولة</h2>
-    <div id="round-event-content" style="background:rgba(255,255,255,.03);padding:1rem;border-radius:8px;line-height:1.8"></div>
-    <button class="btn" onclick="nextRound()" style="width:100%;justify-content:center;margin-top:1rem">الانتقال للجولة التالية</button>
+    <button class="btn" onclick="nextRound()" style="width:100%;justify-content:center">الانتقال للجولة التالية</button>
   </div>
 </div>
 
@@ -177,7 +171,7 @@
 let gameState = {
   players: [], hands: {}, pendingMessages: {}, pendingAllianceRequests: [], currentRound: 1,
   activePlayerIndex: 0, selectedCardId: null, roundActions: [], courtCase: null,
-  privateOpen: false, extraTurnAvailable: false, votingIndex: 0, votes: [], roundEvent: null
+  privateOpen: false, extraTurnAvailable: false, votingIndex: 0, votes: []
 };
 
 function addPlayerInput(){ const c=document.getElementById('player-inputs-container'); const i=document.createElement('input'); i.type='text'; i.className='player-name-input'; i.placeholder=`اسم اللاعب ${c.children.length+1}`; c.appendChild(i); }
@@ -298,31 +292,9 @@ function submitPrivateVote(){
 }
 async function finishVoting(){
   document.getElementById('voting-screen').style.display='none';
-  try{
-    const d=await api({action:'resolve_vote',players:gameState.players,trueCulpritId:gameState.courtCase?.trueCulpritId,votes:gameState.votes,round:gameState.currentRound});
-    gameState.players=d.players; gameState.roundEvent=d.roundEvent;
-    document.getElementById('verdict-message').innerText=d.verdictMsg;
-    document.getElementById('vote-counts').innerText=Object.entries(d.voteCounts||{}).map(([id,n])=>`${gameState.players.find(p=>p.id===id)?.name||'مجهول'}: ${n} صوت`).join(' · ')||'لم تصل أصوات صالحة.';
-    document.getElementById('verdict-screen').style.display='block';
-  }catch(e){alert(e.message)}
+  try{const d=await api({action:'resolve_vote',players:gameState.players,trueCulpritId:gameState.courtCase?.trueCulpritId,votes:gameState.votes});gameState.players=d.players;document.getElementById('verdict-message').innerText=d.verdictMsg;document.getElementById('vote-counts').innerText=Object.entries(d.voteCounts||{}).map(([id,n])=>`${gameState.players.find(p=>p.id===id)?.name||'مجهول'}: ${n} صوت`).join(' · ')||'لم تصل أصوات صالحة.';document.getElementById('verdict-screen').style.display='block';}catch(e){alert(e.message)}
 }
-function showRoundEvent(){
-  document.getElementById('verdict-screen').style.display='none';
-  const ev=gameState.roundEvent;
-  if(!ev){ document.getElementById('round-event-content').innerText='لم يحدث أي تغيير إضافي هذه الجولة.'; }
-  else {
-    const changes=(ev.changes||[]).map(x=>`<div>• ${escapeHtml(x)}</div>`).join('');
-    document.getElementById('round-event-content').innerHTML=`<h3>${escapeHtml(ev.title)}</h3><p>${escapeHtml(ev.description)}</p><div style="margin-top:.8rem"><strong>الأثر:</strong>${changes||'<div>لا أثر رقمي.</div>'}</div>`;
-  }
-  renderTable();
-  document.getElementById('round-event-screen').style.display='block';
-}
-function nextRound(){
-  document.getElementById('verdict-screen').style.display='none';
-  document.getElementById('round-event-screen').style.display='none';
-  gameState.currentRound++; gameState.activePlayerIndex=0; gameState.roundActions=[]; gameState.roundEvent=null;
-  document.getElementById('game-screen').style.display='block'; prepareTurn();
-}
+function nextRound(){document.getElementById('verdict-screen').style.display='none';gameState.currentRound++;gameState.activePlayerIndex=0;gameState.roundActions=[];document.getElementById('game-screen').style.display='block';prepareTurn();}
 function resetGame(){if(confirm('إعادة ضبط اللعبة؟'))location.reload();}
 function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 </script>
