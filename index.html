@@ -34,7 +34,7 @@
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
     .player-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 10px; padding: 1rem; display: flex; flex-direction: column; justify-content: space-between; }
     .badge { display: inline-block; padding: 0.2rem 0.5rem; font-size: 0.8rem; border-radius: 4px; background: rgba(59,130,246,0.2); color: var(--primary); }
-    .card-item { background: #26354a; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.8rem; margin-bottom: 0.8rem; cursor: pointer; transition: all 0.2s; }
+    .card-item { background: #26354a; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.9rem; margin-bottom: 0.8rem; cursor: pointer; transition: all 0.2s; }
     .card-item:hover { border-color: var(--primary); transform: translateY(-2px); }
     .card-item.selected { border-color: var(--accent); background: rgba(245,158,11,0.1); }
     .flex-row { display: flex; gap: 0.75rem; align-items: center; }
@@ -44,14 +44,12 @@
   
     .locked { opacity: .5; filter: blur(1px); pointer-events:none; }
     .hidden-private { display:none !important; }
-    .card-item { background:#26354a; border:1px solid var(--border-color); border-radius:8px; padding:.9rem; margin-bottom:.8rem; }
     .card-item button { margin-top:.65rem; }
   </style>
 </head>
 <body>
 
 <div class="container" id="app">
-  <!-- إعداد اللعبة -->
   <div id="setup-screen" class="card">
     <h2>المحكمة السرية - إعداد الجلسة</h2>
     <p class="text-muted" style="text-align: center; margin-bottom: 1.5rem;">أدخل أسماء المشاركين لبدء جلسة المحكمة واستمتع بالأدوار والأسرار.</p>
@@ -66,7 +64,6 @@
     </div>
   </div>
 
-  <!-- واجهة اللعبة الأساسية -->
   <div id="game-screen" style="display: none;">
     <div class="card flex-row" style="justify-content: space-between;">
       <div>
@@ -226,22 +223,42 @@ function renderPrivateInterface(){
   const box=document.getElementById('private-inventory');
   const msgs=gameState.pendingMessages[p.id]||[];
   let html=`<div class="card" style="background:rgba(255,255,255,.02)"><h3>رصيدك: ${p.reputation} سمعة</h3>`;
-  if(msgs.length) html+=msgs.map(m=>m.type==='ALLIANCE_REQUEST'?`<div class="success-box"><strong>🤝 ${m.fromName}</strong><p style="margin:.5rem 0">طلب تحالفًا معك.</p><div class="flex-row"><button class="btn btn-success" onclick="respondAlliance('${m.requestId}',true)">قبول</button><button class="btn btn-danger" onclick="respondAlliance('${m.requestId}',false)">رفض</button></div></div>`:`<div class="success-box"><strong>✉️ من ${m.fromName}</strong><p style="margin-top:.4rem">${escapeHtml(m.text)}</p></div>`).join('');
-  if(msgs.length) gameState.pendingMessages[p.id]=[];
-  html += hand.length ? `<h3>بطاقاتك</h3>${hand.map(c=>`<div class="card-item"><strong>${c.name}</strong> <span class="badge">${c.rarity} · خطر ${c.risk}/4</span><p class="text-muted" style="margin-top:.4rem">${c.description}</p><button class="btn" onclick="selectCard('${c.id}')">اختيار للعب</button></div>`).join('') : `<p class="text-muted">لا تملك بطاقات. يجب شراء بطاقة عشوائية ثم لعب بطاقة لإنهاء الدور.</p>`;
-  box.innerHTML=html+'</div>';
-  const card=(gameState.hands[p.id]||[]).find(c=>c.id===gameState.selectedCardId);
-  document.getElementById('action-controls').style.display=card?'block':'none';
+  if(msgs.length){
+    html+=msgs.map(m=>m.type==='ALLIANCE_REQUEST'?`<div class="success-box"><strong>🤝 ${m.fromName}</strong><p style="margin:.5rem 0">طلب تحالفًا معك.</p><div class="flex-row"><button class="btn btn-success" onclick="respondAlliance('${m.requestId}',true)">قبول</button><button class="btn btn-danger" onclick="respondAlliance('${m.requestId}',false)">رفض</button></div></div>`:`<div class="success-box"><strong>✉️ من ${m.fromName}</strong><p style="margin-top:.4rem">${escapeHtml(m.text)}</p></div>`).join('');
+    gameState.pendingMessages[p.id]=[];
+  }
+  html += hand.length ? `<h3>بطاقاتك</h3>${hand.map(c=>`<div class="card-item ${c.id===gameState.selectedCardId?'selected':''}"><strong>${c.name}</strong> <span class="badge">${c.rarity} · خطر ${c.risk}/4</span><p class="text-muted" style="margin-top:.4rem">${c.description}</p><button class="btn" onclick="selectCard('${c.id}')">اختيار للعب</button></div>`).join('')}` : `<p class="text-muted">لا تملك بطاقات. يجب شراء بطاقة عشوائية ثم لعب بطاقة لإنهاء الدور.</p>`;
+  box.innerHTML=html+'images' in window ? '' : (html+'</div>');
+  
+  const card=hand.find(c=>c.id===gameState.selectedCardId);
+  const actionControls=document.getElementById('action-controls');
   if(card){
-    document.getElementById('target-selector-wrapper').style.display=card.targetRequired?'block':'none'; document.getElementById('text-input-wrapper').style.display=card.effectType==='MESSAGE'?'block':'none';
-    const sel=document.getElementById('target-select'); sel.innerHTML=gameState.players.filter(x=>x.id!==p.id&&x.reputation>0).map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
+    actionControls.style.display='block';
+    document.getElementById('target-selector-wrapper').style.display=card.targetRequired?'block':'none';
+    document.getElementById('text-input-wrapper').style.display=card.effectType==='MESSAGE'?'block':'none';
+    if(card.targetRequired){
+      const sel=document.getElementById('target-select');
+      sel.innerHTML=gameState.players.filter(x=>x.id!==p.id&&x.reputation>0).map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
+    }
+  } else {
+    actionControls.style.display='none';
   }
   document.getElementById('extra-turn-controls').style.display=gameState.extraTurnAvailable?'block':'none';
 }
-function selectCard(id){gameState.selectedCardId=id;renderPrivateInterface();}
+
+function selectCard(id){ gameState.selectedCardId=id; renderPrivateInterface(); }
+
 async function buyRandomCard(cost){
   const p=currentPlayer();
-  try{const d=await api({action:'buy_card',players:gameState.players,playerId:p.id,cost}); gameState.players=d.players; gameState.hands[p.id].push(d.boughtCard); renderTable();renderPrivateInterface();alert(`سحبت عشوائيًا: ${d.boughtCard.name}`);}catch(e){alert(e.message)}
+  try{
+    const d=await api({action:'buy_card',players:gameState.players,playerId:p.id,cost});
+    gameState.players=d.players;
+    if(!gameState.hands[p.id]) gameState.hands[p.id]=[];
+    gameState.hands[p.id].push(d.boughtCard);
+    renderTable();
+    renderPrivateInterface();
+    alert(`سحبت عشوائيًا: ${d.boughtCard.name}`);
+  }catch(e){alert(e.message)}
 }
 
 async function playSelectedCard(){
