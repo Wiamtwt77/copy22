@@ -65,6 +65,120 @@ function anonymizedInvestigationFacts(players, actions, round, allianceRequests,
   return result;
 }
 
+
+function chooseRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function applyPublicRoundEvent(players, round, voteContext = {}) {
+  const ps = normalizePlayers(players).filter(p => p.reputation > 0);
+  if (ps.length < 2) {
+    return { players: normalizePlayers(players), roundEvent: { title: 'هدوء استثنائي', description: 'لم يتبق عدد كافٍ من المشاركين لإقامة حدث جماعي.', type: 'NEUTRAL', changes: [] } };
+  }
+
+  const working = normalizePlayers(players);
+  const alive = working.filter(p => p.reputation > 0);
+  const pickOne = () => chooseRandom(alive);
+  const pickTwo = () => {
+    const a = pickOne();
+    const others = alive.filter(p => p.id !== a.id);
+    return [a, chooseRandom(others)];
+  };
+  const clamp = (p, delta) => {
+    const before = p.reputation;
+    p.reputation = Math.max(0, p.reputation + delta);
+    return p.reputation - before;
+  };
+
+  // The event pool intentionally mixes positive, negative, and transfer/swap outcomes.
+  const types = [
+    'TRANSFER', 'POINT_SWAP', 'GROUP_PENALTY', 'GROUP_REWARD',
+    'SINGLE_REWARD', 'SINGLE_PENALTY', 'RISK_REWARD', 'PUBLIC_BURDEN'
+  ];
+  const type = chooseRandom(types);
+  const changes = [];
+  let title = '';
+  let description = '';
+
+  if (type === 'TRANSFER') {
+    const [from, to] = pickTwo();
+    const amount = 1 + Math.floor(Math.random() * 3);
+    const moved = Math.min(amount, from.reputation);
+    from.reputation -= moved;
+    to.reputation += moved;
+    title = '💰 تحويل موارد مفاجئ';
+    description = `وصلت موارد من ${from.name} إلى ${to.name} في نهاية الجولة.`;
+    changes.push(`${from.name}: -${moved} سمعة`, `${to.name}: +${moved} سمعة`);
+  } else if (type === 'POINT_SWAP') {
+    const [a, b] = pickTwo();
+    const aBefore = a.reputation, bBefore = b.reputation;
+    a.reputation = Math.max(0, bBefore);
+    b.reputation = Math.max(0, aBefore);
+    title = '🔄 قلب النقاط';
+    description = `حدثت تسوية غير متوقعة قلبت نقاط ${a.name} و${b.name} بينهما.`;
+    changes.push(`${a.name}: ${aBefore} → ${a.reputation}`, `${b.name}: ${bBefore} → ${b.reputation}`);
+  } else if (type === 'GROUP_PENALTY') {
+    const amount = round >= 3 ? 2 : 1;
+    for (const p of alive) {
+      const d = clamp(p, -amount);
+      changes.push(`${p.name}: ${d}`);
+    }
+    title = '⚠️ عقوبة جماعية';
+    description = 'صدر قرار جماعي أدى إلى اقتطاع جزء من موارد جميع المشاركين.';
+  } else if (type === 'GROUP_REWARD') {
+    const amount = round >= 3 ? 2 : 1;
+    for (const p of alive) {
+      clamp(p, amount);
+      changes.push(`${p.name}: +${amount} سمعة`);
+    }
+    title = '🎁 مكافأة جماعية';
+    description = 'انتهت الجولة بإعلان مكافأة وصلت إلى جميع المشاركين.';
+  } else if (type === 'SINGLE_REWARD') {
+    const target = pickOne();
+    const amount = 3 + Math.floor(Math.random() * 2);
+    clamp(target, amount);
+    title = '⭐ مكافأة مفاجئة';
+    description = `حصل ${target.name} وحده على مكافأة خاصة بعد انتهاء الجولة.`;
+    changes.push(`${target.name}: +${amount} سمعة`);
+  } else if (type === 'SINGLE_PENALTY') {
+    const target = pickOne();
+    const amount = Math.min(target.reputation, 2 + Math.floor(Math.random() * 2));
+    clamp(target, -amount);
+    title = '⛔ خصم مفاجئ';
+    description = `فُرض خصم خاص على ${target.name} في ختام الجولة.`;
+    changes.push(`${target.name}: -${amount} سمعة`);
+  } else if (type === 'RISK_REWARD') {
+    const scored = [...alive].sort((a,b) => (b.suspicion + (b.accusationBonus||0)) - (a.suspicion + (a.accusationBonus||0)));
+    const target = scored[0] || pickOne();
+    const bonus = 3;
+    clamp(target, bonus);
+    title = '🎭 مكافأة على الجرأة';
+    description = `حصل ${target.name} على مكافأة بسبب أكثر سلوك أثار الانتباه خلال الجولة.`;
+    changes.push(`${target.name}: +${bonus} سمعة`);
+  } else if (type === 'PUBLIC_BURDEN') {
+    const target = pickOne();
+    const amount = 2;
+    clamp(target, amount);
+    const rest = alive.filter(p => p.id !== target.id);
+    let shared = 0;
+    for (const p of rest) shared += clamp(p, -1);
+    title = '⚖️ عبء مقابل امتياز';
+    description = `${target.name} حصل على امتياز، بينما تحمل بقية المشاركين كلفة صغيرة.`;
+    changes.push(`${target.name}: +${amount} سمعة`, ...rest.map(p => `${p.name}: -1 سمعة`));
+  }
+
+  return {
+    players: working,
+    roundEvent: {
+      id: randomId('event'),
+      round,
+      title,
+      description,
+      type,
+      changes,
+      voteContext: { majorityId: voteContext.majorityId || null, guiltyFound: Boolean(voteContext.guiltyFound) }
+    }
+  };
+}
+
 async function generateAiReport({ players, actions, round, allianceRequests, defamationCount, reputationChanges }) {
   const facts = anonymizedInvestigationFacts(players, actions, round, allianceRequests, defamationCount);
   const key = process.env.OPENROUTER_KEY;
@@ -240,15 +354,18 @@ export async function handleGameRequest(req, res) {
     const majority = winner && winner[1] > totalVoters / 2 ? winner[0] : null;
     const culprit = body.trueCulpritId;
     let verdictMsg = '';
+    let guiltyFound = false;
     if (majority && majority === culprit) {
       const target = findPlayer(players, majority); if (target) target.reputation = Math.max(0, target.reputation - 4);
+      guiltyFound = true;
       verdictMsg = `أصابت الأغلبية الجاني. ${target?.name || 'المتهم'} تلقى العقوبة.`;
     } else {
       const wrongVoters = votes.filter(v => v?.voterId).map(v => findPlayer(players, v.voterId)).filter(Boolean);
       for (const voter of wrongVoters) voter.reputation = Math.max(0, voter.reputation - 2);
       verdictMsg = 'أفلت الجاني من أغلبية حاسمة. عوقب المشاركون الذين أخطؤوا في التصويت.';
     }
-    return json(res, 200, { players, verdictMsg, voteCounts: counts, majorityId: majority });
+    const eventResult = applyPublicRoundEvent(players, Number(body.round) || 1, { majorityId: majority, guiltyFound });
+    return json(res, 200, { ...eventResult, verdictMsg, voteCounts: counts, majorityId: majority });
   }
 
   return json(res, 400, { error: true, message: `إجراء غير معروف: ${action || 'بدون action'}` });
